@@ -227,11 +227,6 @@
   :type 'cons
   :group 'snails)
 
-(defcustom snails-input-buffer-text-scale 1.25
-  "The font scale of input buffer."
-  :type 'float
-  :group 'snails)
-
 (defcustom snails-need-render-candidate-icon t
   "If non nil try render candidate icon."
   :type 'boolean
@@ -555,8 +550,6 @@ or set it with any string you want."
     (run-hooks 'snails-mode-hook)
     ;; Set input buffer face.
     (buffer-face-set 'snails-input-buffer-face)
-    ;; Increate input buffer size, this need set for Emacs 28.
-    (text-scale-increase snails-input-buffer-text-scale)
     ;; Remap `hl-line' color with `snails-input-buffer-face', avoid two colors in input backgorund.
     (face-remap-add-relative 'hl-line :background (face-background 'snails-input-buffer-face))
     ;; Disable hl-line, header-line and mode-line in input buffer.
@@ -564,6 +557,8 @@ or set it with any string you want."
     (setq-local mode-line-format nil)
     ;; Set input window minimum height.
     (setq-local window-min-height snails-input-buffer-window-min-height)
+    ;; Automatically adjust the window height.
+    (setq-local window-resize-pixelwise t)
     ))
 
 (defun snails-create-tips-buffer ()
