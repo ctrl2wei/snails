@@ -572,7 +572,12 @@ or set it with any string you want."
     (erase-buffer)
     (buffer-face-set 'snails-content-buffer-face)
     ;; Insert prefix tips.
+    (setq prompt-start (point))
     (insert "Search prefix:")
+    (setq prompt-end (point))
+    (overlay-put (make-overlay prompt-start prompt-end)
+                 'face
+                 'snails-tips-prefix-backend-face)
     (dolist (prefix-backends snails-prefix-backends)
       (let (prefix-key-start prefix-key-end prefix-backend-start prefix-backend-end)
         (setq prefix-key-start (point))
