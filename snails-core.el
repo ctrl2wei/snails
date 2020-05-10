@@ -839,7 +839,7 @@ or set it with any string you want."
              header-index-end
              candidate-content-start
              candidate-content-end
-             (candidate-render-icon-func snails-need-render-candidate-icon))
+             candidate-render-icon-func)
         ;; Render backend result.
         (dolist (candiate-list snails-candiate-list)
           ;; Just render backend result when return candidate is not nil.
@@ -866,7 +866,7 @@ or set it with any string you want."
             (forward-char)
             (setq effective-backend-index (+ effective-backend-index 1))
 
-            (setq candidate-render-icon-func (if candidate-render-icon-func
+            (setq candidate-render-icon-func (if snails-need-render-candidate-icon
                                                  (cdr (assoc "icon" (eval (nth candiate-index snails-backends))))))
 
             ;; Trick: make icon have same indent.
