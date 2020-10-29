@@ -123,7 +123,7 @@
 
  :candidate-do
  (lambda (candidate)
-   (find-file candidate)))
+   (snails-find-file candidate)))
 
 (provide 'snails-backend-projectile)
 

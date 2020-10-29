@@ -1,15 +1,15 @@
-;;; snails-backend-fd.el --- fd backend for snails
+;;; snails-backend-search-pdf.el --- search pdf with rga
 
-;; Filename: snails-backend-fd.el
-;; Description: fd backend for snails
-;; Author: Andy Stewart <lazycat.manatee@gmail.com>
-;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
+;; Filename: snails-backend-search-pdf.el
+;; Description: search pdf with rga
+;; Author: lyjdwh <lyjdwh@gmail.com>
+;; Maintainer: lyjdwh <lyjdwh@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
-;; Created: 2019-07-23 16:42:52
+;; Created: 2020-07-29 12:00
 ;; Version: 0.1
-;; Last-Updated: 2019-07-23 16:42:52
-;;           By: Andy Stewart
-;; URL: http://www.emacswiki.org/emacs/download/snails-backend-fd.el
+;; Last-Updated: 2020-07-29 12:00:00
+;;           By: lyjdwh
+;; URL: http://www.emacswiki.org/emacs/download/snails-backend-search-pdf.el
 ;; Keywords:
 ;; Compatibility: GNU Emacs 26.2
 ;;
@@ -39,19 +39,19 @@
 
 ;;; Commentary:
 ;;
-;; fd backend for snails
+;; fasd backend for snails
 ;;
 
 ;;; Installation:
 ;;
-;; Put snails-backend-fd.el to your load-path.
+;; Put snails-backend-fasd.el to your load-path.
 ;; The load-path is usually ~/elisp/.
 ;; It's set in your ~/.emacs like this:
 ;; (add-to-list 'load-path (expand-file-name "~/elisp"))
 ;;
 ;; And the following to your ~/.emacs startup file.
 ;;
-;; (require 'snails-backend-fd)
+;; (require 'snails-backend-search-pdf)
 ;;
 ;; No need more.
 
@@ -60,7 +60,7 @@
 ;;
 ;;
 ;; All of the above can customize by:
-;;      M-x customize-group RET snails-backend-fd RET
+;;      M-x customize-group RET snails-backend-fasd.el RET
 ;;
 
 ;;; Change log:
@@ -69,35 +69,23 @@
 ;;      * First released.
 ;;
 
-;;; Acknowledgements:
-;;
-;;
-;;
-
-;;; TODO
-;;
-;;
-;;
-
-;;; Require
 (require 'snails-core)
 
-;;; Code:
+(defvar snails-backend-search-pdf-dir nil
+  "the dir which snails-backend-search-pdf search at.")
 
 (snails-create-async-backend
  :name
- "FD"
-
- :prefix
- "?"
+ "search-pdf"
 
  :build-command
  (lambda (input)
-   (when (and (executable-find "fd")
-              (> (length input) 5))
-     (let ((search-dir (or snails-project-root-dir (snails-start-buffer-dir)))
+   (when (and (executable-find "rga")
+              (> (length input) 3))
+     (let ((search-dir (or snails-project-root-dir (expand-file-name (snails-start-buffer-dir) )))
            (search-input input)
            (search-info (snails-pick-search-info-from-input input)))
+
        ;; If the user input character includes the path separator @, replace the current directory with the entered directory.
        (when search-info
          (setq search-dir (first search-info))
@@ -107,25 +95,51 @@
          (setq search-input (encode-coding-string search-input locale-coding-system))
          (setq search-dir (encode-coding-string search-dir locale-coding-system)))
 
-       (list "fd" "-c" "never" "-a" "-tf" search-input "--search-path" search-dir))
-     ))
+       (setq snails-backend-search-pdf-dir search-dir)
+       (message (format "searching pdf at %s" search-dir))
+
+       ;; Search.
+       (when search-dir
+         (list "rga" "--no-heading" "--column" "--color" "never" "--max-columns" "300" "--rga-adapters=poppler" search-input search-dir)
+         ))))
 
  :candidate-filter
  (lambda (candidate-list)
    (let (candidates)
      (dolist (candidate candidate-list)
-       (snails-add-candiate 'candidates candidate candidate))
+       (let ((candidate-info (split-string candidate ":")))
+         (snails-add-candiate
+          'candidates
+          (format "%s: %s"
+                  (file-relative-name (nth 0 candidate-info) snails-backend-search-pdf-dir )
+                  (string-join (cddr candidate-info)))
+          candidate)))
      candidates))
 
  :candidate-icon
  (lambda (candidate)
-   (snails-render-search-file-icon candidate candidate))
+   (snails-render-search-file-icon
+    (nth 0 (split-string candidate ":"))
+    candidate))
 
  :candidate-do
  (lambda (candidate)
-   (snails-find-file candidate)
-   ))
+   (let ((file-info (split-string candidate ":")))
+     (when (> (length file-info) 3)
+       ;; Open pdf and jump to page.
+       (if (require 'eaf nil 'noerror)
+           (progn
+             (eaf-open (nth 0 file-info))
+             (eaf-call "handle_input_message"
+                       eaf--buffer-id
+                       "jump_page"
+                       (string-to-number (substring (nth 2 file-info) 5))))
+         (progn
+           (find-file (nth 0 file-info))
+           (pdf-view-goto-page (string-to-number (substring (nth 2 file-info) 5)))))
 
-(provide 'snails-backend-fd)
+       ;; Flash match line.
+       (snails-flash-line)
+       ))))
 
-;;; snails-backend-fd.el ends here
+(provide 'snails-backend-search-pdf)

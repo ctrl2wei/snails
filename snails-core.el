@@ -7,8 +7,8 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-05-16 21:26:09
-;; Version: 7.2
-;; Last-Updated: 2020-03-30 21:26:44
+;; Version: 7.3
+;; Last-Updated: 2020-06-19 02:07:26
 ;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/snails-core.el
 ;; Keywords:
@@ -211,10 +211,9 @@
   :type 'integer
   :group 'snails)
 
-(defcustom snails-default-backends '()
-  "The default backend.
-when use macro to create new backend,
-it will automatically register to default backends."
+(defcustom snails-default-backends
+  '(snails-backend-eaf-browser-history snails-backend-awesome-tab-group snails-backend-buffer snails-backend-eaf-pdf-table snails-backend-eaf-browser-open snails-backend-eaf-browser-search snails-backend-eaf-github-search snails-backend-google-suggestion snails-backend-recentf snails-backend-directory-files snails-backend-bookmark)
+  "The default backend"
   :type 'cons
   :group 'snails)
 
@@ -284,7 +283,7 @@ need to set face attribute, such as foreground and background."
   :group 'snails)
 
 (defface snails-tips-prefix-backend-face
-  '((t (:height 140)))
+  '((t (:inherit font-lock-comment-face)))
   "Face for tips backend name."
   :group 'snails)
 
@@ -496,9 +495,17 @@ or set it with any string you want."
   "Confirm current candidate."
   (interactive)
   (let ((candidate-info (snails-candidate-get-info)))
-    (if candidate-info
-        (snails-backend-do (nth 0 candidate-info) (nth 1 candidate-info))
-      (message "Nothing selected."))))
+    (cond
+     ;; Quit snails if candidate is empty string.
+     ((and (stringp candidate-info) (string-empty-p (string-trim candidate-info)))
+      (snails-quit))
+     ;; Execute backend command if `candidate-info' is valid info.
+     (candidate-info
+      (snails-backend-do (nth 0 candidate-info) (nth 1 candidate-info)))
+     ;; Message to user if nothing selected.
+     (t
+      (message "Nothing selected."))
+     )))
 
 (defun snails-kill ()
   (interactive)
@@ -536,8 +543,9 @@ or set it with any string you want."
 
 (defun snails-focus-init-frame ()
   (when snails-init-frame
-    (select-frame snails-init-frame)
-    ))
+    (select-frame snails-init-frame))
+  (when (frame-focus-state snails-init-frame)
+    (select-frame-set-input-focus snails-init-frame)))
 
 (defun snails-create-input-buffer ()
   "Create input buffer."
@@ -551,52 +559,51 @@ or set it with any string you want."
     (buffer-face-set 'snails-input-buffer-face)
     ;; Remap `hl-line' color with `snails-input-buffer-face', avoid two colors in input backgorund.
     (face-remap-add-relative 'hl-line :background (face-background 'snails-input-buffer-face))
-    ;; Disable hl-line, header-line and mode-line in input buffer.
-    (setq-local header-line-format nil)
-    (setq-local mode-line-format nil)
+    ;; Disable many options for snails buffers.
+    (snails-disable-options nil)
     ;; Set input window minimum height.
+    (setq-local window-resize-pixelwise t)
     (setq-local window-min-height snails-input-buffer-window-min-height)
     ;; Automatically adjust the window height.
     (setq-local window-resize-pixelwise t)
     ))
 
 (defun snails-create-tips-buffer ()
-  (with-current-buffer (get-buffer-create snails-tips-buffer)
-    ;; Clear buffer.
-    (erase-buffer)
-    (buffer-face-set 'snails-content-buffer-face)
-    ;; Insert prefix tips.
-    (setq prompt-start (point))
-    (insert "Search prefix:")
-    (setq prompt-end (point))
-    (overlay-put (make-overlay prompt-start prompt-end)
-                 'face
-                 'snails-tips-prefix-backend-face)
-    (dolist (prefix-backends snails-prefix-backends)
-      (let (prefix-key-start prefix-key-end prefix-backend-start prefix-backend-end)
-        (setq prefix-key-start (point))
-        (insert (format " %s " (car prefix-backends)))
-        (setq prefix-key-end (point))
-        (overlay-put (make-overlay prefix-key-start prefix-key-end)
-                     'face
-                     'snails-tips-prefix-key-face)
+  (let (prefix-tip-start)
+    (with-current-buffer (get-buffer-create snails-tips-buffer)
+      ;; Clear buffer.
+      (erase-buffer)
+      (buffer-face-set 'snails-content-buffer-face)
+      ;; Insert prefix tips.
+      (setq prefix-tip-start (point))
+      (insert "Prefix:")
+      (overlay-put (make-overlay prefix-tip-start (point))
+                   'face
+                   'snails-tips-prefix-backend-face)
+      ;; Insert tips.
+      (dolist (prefix-backends snails-prefix-backends)
+        (let (prefix-key-start prefix-key-end prefix-backend-start prefix-backend-end)
+          (setq prefix-key-start (point))
+          (insert (format " %s " (car prefix-backends)))
+          (setq prefix-key-end (point))
+          (overlay-put (make-overlay prefix-key-start prefix-key-end)
+                       'face
+                       'snails-tips-prefix-key-face)
 
-        (setq prefix-backend-start (point))
-        (insert (mapconcat (lambda (b) (format "'%s'" (eval (cdr (assoc "name" (eval b)))))) (eval (cadr prefix-backends)) " "))
-        (setq prefix-backend-end (point))
-        (overlay-put (make-overlay prefix-backend-start prefix-backend-end)
-                     'face
-                     'snails-tips-prefix-backend-face)
-        ))
-    ;; Disable hl-line, header-line and cursor shape in tips buffer.
-    (setq-local header-line-format nil)
-    (setq-local mode-line-format nil)
-    (setq-local cursor-type nil)
-    ;; Set tips window minimum height.
-    (setq-local window-min-height snails-tips-buffer-window-min-height)
-    ;; Move coursor to the begin of buffer to show all information.
-    (beginning-of-buffer)
-    ))
+          (setq prefix-backend-start (point))
+          (insert (mapconcat (lambda (b) (format "'%s'" (eval (cdr (assoc "name" (eval b)))))) (eval (cadr prefix-backends)) " "))
+          (setq prefix-backend-end (point))
+          (overlay-put (make-overlay prefix-backend-start prefix-backend-end)
+                       'face
+                       'snails-tips-prefix-backend-face)
+          ))
+      ;; Disable many options for snails buffers.
+      (snails-disable-options t)
+      ;; Set tips window minimum height.
+      (setq-local window-min-height snails-tips-buffer-window-min-height)
+      ;; Move coursor to the begin of buffer to show all information.
+      (beginning-of-buffer)
+      )))
 
 (defun snails-create-content-buffer ()
   "Create content buffer."
@@ -605,12 +612,26 @@ or set it with any string you want."
     (erase-buffer)
     ;; Set coent buffer face.
     (buffer-face-set 'snails-content-buffer-face)
-    ;; Disable header-line, mode-line, long line and cursor shape in content buffer.
-    (setq-local header-line-format nil)
-    (setq-local mode-line-format nil)
+    ;; Disable many options for snails buffers.
+    (snails-disable-options t)
+    ;; Disable wrap line.
     (setq-local truncate-lines t)
-    (setq-local cursor-type nil)
     ))
+
+(defun snails-disable-options (&optional disable-cursor)
+  "Disable many options for snails buffers."
+  ;; Disable line numbers mode.
+  (when display-line-numbers
+    (setq-local display-line-numbers nil))
+  ;; Disable tab-line.
+  (when (version< "27.0" emacs-version)
+    (setq-local tab-line-format nil))
+  ;; Disable hl-line, header-line and mode-line in input buffer.
+  (setq-local header-line-format nil)
+  (setq-local mode-line-format nil)
+  ;; Disable cursor type if option `disable-cursor' is non-nil.
+  (when disable-cursor
+    (setq-local cursor-type nil)))
 
 (defun snails-monitor-input (begin end length)
   "This is input monitor callback to hook `after-change-functions'."
@@ -706,7 +727,7 @@ or set it with any string you want."
       (add-hook 'after-change-functions 'snails-monitor-input nil t)
 
       (unless snails-default-show-prefix-tips
-          (snails-toggle-prefix-tips-buffer))
+        (snails-toggle-prefix-tips-buffer))
 
       ;; Focus out to hide snails frame on Mac.
       (when (featurep 'cocoa)
@@ -1355,8 +1376,8 @@ If `fuz' not found, use normal match algorithm."
 
 If `snails-start-buffer' is nil, get path of HOME."
   (if snails-start-buffer
-        snails-start-buffer-dir-path
-      (expand-file-name "~")))
+      snails-start-buffer-dir-path
+    (expand-file-name "~")))
 
 (defun snails-pick-search-info-from-input (input)
   "If nothing after @ , return HOME path and search string.
@@ -1377,6 +1398,13 @@ Otherwise return nil."
   (let ((pulse-iterations 1)
         (pulse-delay 0.3))
     (pulse-momentary-highlight-one-line (point) 'highlight)))
+
+(defun snails-find-file (file)
+  "This function support EAF.
+If EAF library is load, use `eaf-open' instead `find-file'."
+  (if (require 'eaf nil t)
+      (eaf-open file)
+    (find-file file)))
 
 (advice-add 'other-window
             :around
