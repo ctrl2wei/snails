@@ -187,6 +187,10 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+;; Try load `all-the-icons' libary when start, otherwise candidate icon won't render.
+(ignore-errors
+  (require 'all-the-icons))
+
 (defvar snails-use-exec-path-from-shell t)
 
 (when (and snails-use-exec-path-from-shell
@@ -212,7 +216,17 @@
   :group 'snails)
 
 (defcustom snails-default-backends
-  '(snails-backend-eaf-browser-history snails-backend-awesome-tab-group snails-backend-buffer snails-backend-eaf-pdf-table snails-backend-eaf-browser-open snails-backend-eaf-browser-search snails-backend-eaf-github-search snails-backend-google-suggestion snails-backend-recentf snails-backend-directory-files snails-backend-bookmark)
+  '(snails-backend-eaf-browser-history
+    snails-backend-awesome-tab-group
+    snails-backend-buffer
+    snails-backend-eaf-pdf-table
+    snails-backend-eaf-browser-open
+    snails-backend-eaf-browser-search
+    snails-backend-eaf-github-search
+    snails-backend-google-suggestion
+    snails-backend-recentf
+    snails-backend-directory-files
+    snails-backend-bookmark)
   "The default backend"
   :type 'cons
   :group 'snails)
@@ -886,8 +900,9 @@ or set it with any string you want."
             (forward-char)
             (setq effective-backend-index (+ effective-backend-index 1))
 
-            (setq candidate-render-icon-func (if snails-need-render-candidate-icon
-                                                 (cdr (assoc "icon" (eval (nth candiate-index snails-backends))))))
+            ;; Set render icon callback if option `snails-need-render-candidate-icon' is non-nil.
+            (when snails-need-render-candidate-icon
+              (setq candidate-render-icon-func (cdr (assoc "icon" (eval (nth candiate-index snails-backends))))))
 
             ;; Trick: make icon have same indent.
             (setq-local tab-width 1)
