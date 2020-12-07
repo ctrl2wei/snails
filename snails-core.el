@@ -1174,17 +1174,12 @@ influence of C1 on the result."
   "Detect current line whether empty line."
   (= (point-at-eol) (point-at-bol)))
 
-(defun snails-render-web-icon ()
-  (if (featurep 'all-the-icons)
-      (all-the-icons-faicon "html5"))
-  "")
-
 (defun snails-render-buffer-icon (buf)
   "Render buffer icon."
   (if (featurep 'all-the-icons)
       (with-current-buffer buf
         (if (derived-mode-p buf 'eaf-mode)
-            (all-the-icons-faicon "html5")
+            (all-the-icons-faicon "html5" :v-adjust 0.01)
           (all-the-icons-icon-for-buffer)))
     ""))
 
@@ -1192,6 +1187,18 @@ influence of C1 on the result."
   "Render file icon."
   (if (featurep 'all-the-icons)
       (all-the-icons-icon-for-file file :height 1)
+    ""))
+
+(defun snails-render-material-icon (icon-name)
+  "Render meterial icon."
+  (if (featurep 'all-the-icons)
+      (all-the-icons-material icon-name :v-adjust -0.15)
+    ""))
+
+(defun snails-render-faicon-icon (icon-name)
+  "Render faicon icon."
+  (if (featurep 'all-the-icons)
+      (all-the-icons-faicon icon-name :v-adjust -0.03)
     ""))
 
 (defun snails-render-search-file-icon (file candidate &optional no-trim)
